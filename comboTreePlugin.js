@@ -12,7 +12,17 @@
     var comboTreePlugin = 'comboTree',
         defaults = {
             source: [], 
-            isMultiple: false
+            isMultiple: false,
+            callbacks: {
+                onOpen: null,
+                onClose: null,
+                onItemClick: null,
+                onInitialized: null
+            },
+            renderItem: null,
+            slideDuration: 500,
+            autoUnselectChildren: true,
+            autoSelectParent: true,
         };
 
     // The actual plugin constructor
@@ -24,11 +34,16 @@
         
         this._defaults = defaults;
         this._name = comboTreePlugin;
+        this._isOpened = false;
         
         this.init();
     }
 
     ComboTree.prototype.init = function () {
+        // VARIABLES
+        this._selectedItem = {};
+        this._selectedItems = [];
+
         // Setting Doms
         this.comboTreeId = 'comboTree' + Math.floor(Math.random() * 999999);
 
@@ -53,11 +68,15 @@
         this._elemItems = this._elemDropDownContainer.find('li');
         this._elemItemsTitle = this._elemDropDownContainer.find('span.comboTreeItemTitle');
 
-        // VARIABLES
-        this._selectedItem = {};
-        this._selectedItems = [];
+        // ~
 
         this.bindings();
+
+        if (typeof this.options.callbacks.onInitialized === 'function') {
+            this.options.callbacks.onInitialized();
+        }
+
+        this.refreshInputVal();
     };
 
 
@@ -76,11 +95,11 @@
     };
 
     ComboTree.prototype.createSourceSubItemsHTML = function (subItems) {
-        var subItemsHtml = '<UL>';
+        var subItemsHtml = '<ul>';
         for (var i=0; i<subItems.length; i++){
             subItemsHtml += this.createSourceItemHTML(subItems[i]);
         }
-        subItemsHtml += '</UL>'
+        subItemsHtml += '</ul>'
         return subItemsHtml;
     }
 
@@ -88,20 +107,34 @@
         var itemHtml = "",
             isThereSubs = sourceItem.hasOwnProperty("subs");
         
-        itemHtml = '<LI class="ComboTreeItem' + (isThereSubs?'Parent':'Chlid') + '"> ';
+        itemHtml = '<li class="ComboTreeItem' + (isThereSubs?'Parent':'Chlid') + '"> ';
         
-        if (isThereSubs)
+        if (isThereSubs) {
             itemHtml += '<span class="comboTreeParentPlus">&minus;</span>';
+        }
 
-        if (this.options.isMultiple)
-            itemHtml += '<span data-id="' + sourceItem.id + '" class="comboTreeItemTitle"><input type="checkbox">' + sourceItem.title + '</span>';
-        else
-            itemHtml += '<span data-id="' + sourceItem.id + '" class="comboTreeItemTitle">' + sourceItem.title + '</span>';
+        var checked = '';
 
-        if (isThereSubs)
+        if (sourceItem.selected === true) {
+            checked =  'checked="checked"';
+            this._selectedItems.push(sourceItem);
+        }
+
+        if (typeof this.options.renderItem === 'function') {
+            itemHtml += this.options.renderItem(sourceItem);
+        } else {
+            if (this.options.isMultiple) {
+                itemHtml += '<span data-id="' + sourceItem.id + '" class="comboTreeItemTitle"><input type="checkbox" ' + checked + '>' + sourceItem.title + '</span>';
+            } else {
+                itemHtml += '<span data-id="' + sourceItem.id + '" class="comboTreeItemTitle">' + sourceItem.title + '</span>';
+            }
+        }
+
+        if (isThereSubs) {
             itemHtml += this.createSourceSubItemsHTML(sourceItem.subs);
-
-        itemHtml += '</LI>';
+        }
+        
+        itemHtml += '</li>';
         return itemHtml;
     };
 
@@ -129,7 +162,7 @@
         this._elemItemsTitle.on('click', function(e){
             e.stopPropagation();
             if (_this.options.isMultiple)
-                _this.multiItemClick(this);
+                _this.multiItemClick(this, e);
             else
                 _this.singleItemClick(this);
         });
@@ -155,34 +188,34 @@
                     break;
             }
         });
-        this._elemInput.on('keydown', function(e) {
-            e.stopPropagation();
+        this._elemInput.on('keydown', function(event) {
+            event.stopPropagation();
 
-            switch (e.keyCode) {
+            switch (event.keyCode) {
             case 9:
                 _this.closeDropDownMenu(); break;
             case 40: case 38:
-                e.preventDefault(); 
-                _this.dropDownInputKeyControl(e.keyCode - 39); break;
+                event.preventDefault();
+                _this.dropDownInputKeyControl(event.keyCode - 39); break;
             case 37: case 39:
-                e.preventDefault(); 
-                _this.dropDownInputKeyToggleTreeControl(e.keyCode - 38);
+                event.preventDefault();
+                _this.dropDownInputKeyToggleTreeControl(event.keyCode - 38);
                 break;
             case 13:
                 if (_this.options.isMultiple)
-                    _this.multiItemClick(_this._elemHoveredItem);
+                    _this.multiItemClick(_this._elemHoveredItem, event);
                 else
                     _this.singleItemClick(_this._elemHoveredItem);
-                e.preventDefault(); 
+                event.preventDefault();
                 break;
             default: 
                 if (_this.options.isMultiple)
-                    e.preventDefault();
+                    event.preventDefault();
         }
         });
         // ON FOCUS OUT CLOSE DROPDOWN
-        $(document).on('mouseup.' + _this.comboTreeId, function (e){
-            if (!_this._elemWrapper.is(e.target) && _this._elemWrapper.has(e.target).length === 0 && _this._elemDropDownContainer.is(':visible'))
+        $(document).on('mouseup.' + _this.comboTreeId, function (event){
+            if (!_this._elemWrapper.is(event.target) && _this._elemWrapper.has(event.target).length === 0 && _this._elemDropDownContainer.is(':visible'))
                 _this.closeDropDownMenu();
         });
     };
@@ -195,11 +228,34 @@
 
     // DropDown Menu Open/Close
     ComboTree.prototype.toggleDropDown = function () {
-        this._elemDropDownContainer.slideToggle(50);
-        this._elemInput.focus();
+
+        if (this._isOpened) {
+            this._elemDropDownContainer.slideUp(this.options.slideDuration);
+            this._isOpened = false;
+
+            if (typeof this.options.callbacks.onClose === 'function') {
+                this.options.callbacks.onClose();
+            }
+        } else {
+            this._elemDropDownContainer.slideDown(this.options.slideDuration);
+            this._isOpened = true;
+
+            if (typeof this.options.callbacks.onOpen === 'function') {
+                this.options.callbacks.onOpen();
+            }
+
+            this._elemInput.focus();
+        }
     };
     ComboTree.prototype.closeDropDownMenu = function () {
-        this._elemDropDownContainer.slideUp(50);
+        if (this._isOpened) {
+            this._elemDropDownContainer.slideUp(this.options.slideDuration);
+            this._isOpened = false;
+
+            if (typeof this.options.callbacks.onClose === 'function') {
+                this.options.callbacks.onClose();
+            }
+        }
     };
     // Selection Tree Open/Close
     ComboTree.prototype.toggleSelectionTree = function (item, direction) {
@@ -232,31 +288,98 @@
     // SELECTION FUNCTIONS
     // *****************************
     ComboTree.prototype.singleItemClick = function (ctItem) {
+        var id = $(ctItem).attr("data-id");
         this._selectedItem = {
             id: $(ctItem).attr("data-id"),
             title: $(ctItem).text()
         };
 
         this.refreshInputVal();
+
+        if (typeof this.options.callbacks.onItemClick === 'function') {
+            data = {
+                target: ctItem,
+                $target: $(ctItem),
+                selected: selected,
+                id: id,
+                mode: 'single',
+            };
+            this.options.callbacks.onItemClick(data);
+        }
+        
         this.closeDropDownMenu();
     };
-    ComboTree.prototype.multiItemClick = function (ctItem) {
-        this._selectedItem = {
-            id: $(ctItem).attr("data-id"),
+    ComboTree.prototype.multiItemClick = function (ctItem, event) {
+        var self = this;
+        var id = $(ctItem).attr("data-id");
+        var _selectedItem = {
+            id: id,
             title: $(ctItem).text()
         };
 
-        var index = this.isItemInArray(this._selectedItem, this._selectedItems);
-        if (index){
-            this._selectedItems.splice(parseInt(index), 1);
-            $(ctItem).find("input").prop('checked', false);
-        }
-        else {
-            this._selectedItems.push(this._selectedItem);
-            $(ctItem).find("input").prop('checked', true);
+        console.log($(ctItem).text());
+
+
+        // ~
+
+        var index = this.isItemInArray(_selectedItem, this._selectedItems);
+        var selected = index !== false;
+
+        if (!selected && this.options.autoSelectParent) {
+            var child = $(ctItem).closest('ul').closest('li').find('> .comboTreeItemTitle input:not(:checked)');
+
+            console.log('parent ', child);
+            if (child.length > 0) {
+                child.each(
+                    function() {
+                        self.multiItemClick($(this).parent()[0]);
+                    }
+                )
+            }
         }
 
+        if (selected) {
+            this._selectedItems.splice(parseInt(index), 1);
+            $(ctItem).find("input").prop('checked', false);
+            console.log('[ ] ' + $(ctItem).text());
+        }
+        else {
+            this._selectedItems.push(_selectedItem);
+            $(ctItem).find("input").prop('checked', true);
+            console.log('[v] ' + $(ctItem).text());
+        }
+
+        if (selected && this.options.autoUnselectChildren) {
+            var children = $(ctItem).parent().find('> ul > li > .comboTreeItemTitle input:checked');
+
+            console.log(children);
+            if (children.length > 0) {
+                children.each(
+                    function() {
+                        self.multiItemClick($(this).parent()[0]);
+                    }
+                )
+            }
+        }
+
+
+
         this.refreshInputVal();
+
+        if (
+            'undefined' === typeof event &&
+            typeof this.options.callbacks.onItemClick === 'function'
+        ) {
+            data = {
+                target: ctItem,
+                $target: $(ctItem),
+                selected: selected,
+                id: id,
+                mode: 'multi',
+            };
+
+            this.options.callbacks.onItemClick(data);
+        }
     };
 
     ComboTree.prototype.isItemInArray = function (item, arr) {
