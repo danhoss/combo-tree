@@ -36,22 +36,40 @@
 	<p>
 		<h3>Configurations:</h3>
 		<ul>
-			<li><strong>source:</strong> {JSON OBJECT} It can take JSON data object</li>
-			<li><strong>isMultiple:</strong> {True/False} </li>
+			<li><strong>source:</strong> {json} It can take JSON data object with mandatory <i>id</i> and <i>text</i> keys and optional <i>selected</i></li>
+			<li><strong>isMultiple:</strong> {boolean} </li>
+			<li><strong>renderItem:</strong> {function} </li>
+			<li><strong>autoSelectParent:</strong> {boolean} </li>
+			<li><strong>autoDeselectChildren:</strong> {boolean} </li>
+			<li><strong>slideDuration:</strong> {integer} </li>
+			<li><strong>callbacks.onOpen:</strong> {function} </li>
+			<li><strong>callbacks.onClose:</strong> {function} </li>
+			<li><strong>callbacks.onItemClick:</strong> {function} </li>
+			<li><strong>callbacks.onInitialized:</strong> {function} </li>
 		</ul>
 	</p>
 	<br /><br />
 	<p>
 		<h3>Usage:</h3>
 		<pre>
-	comboTree1 = $('#justAnInputBox').comboTree({
-		source : SampleJSONData,
-		isMultiple: true
-	});
+comboTree1 = $('#justAnInputBox').comboTree({
+	source : SampleJSONData,
+	isMultiple: true,
+	callbacks: {
+		onOpen: function() {},
+		onClose: function() {},
+		onItemClick: function(event) {},
+		onInitialized: function() {},
+	},
+	renderItem: function(item) {},
+	autoSelectParent: true,
+	autoDeselectChildren: true,
+	slideDuration: 100,
+});
 
-	// Array, One title/id, or False value return
-	comboTree1.getSelectedItemsTitle();
-	comboTree1.getSelectedItemsId();
+// Array, One title/id, or False value return
+comboTree1.getSelectedItemsTitle();
+comboTree1.getSelectedItemsId();
 		</pre>
 	</p>
 	<br /><br />
@@ -76,7 +94,8 @@ var SampleJSONData = [
     }, {
         id: 1,
         title: 'choice 2',
-        subs: [
+        selected: true,
+		subs: [
             {
                 id: 10,
                 title: 'choice 2 1'
@@ -137,11 +156,15 @@ jQuery(document).ready(function($) {
 			    onOpen: function() {console.log('open');},
 			    onClose: function() {console.log('close');},
 			    onItemClick: function(event) {console.log('item clicked', event);},
+			    onInitialized: function() {console.log('initialized');},
 			},
 			renderItem: function(item) {
                 var checked = (item.selected === true) ? 'checked="checked"' : '';
                 return '<span data-id="' + item.id + '" class="comboTreeItemTitle"><input type="checkbox" ' + checked + '><b>' + item.title + '</b></span>';
-			}
+			},
+			autoSelectParent: true,
+			autoDeselectChildren: true,
+			slideDuration: 100,
 		});
 
 		comboTree2 = $('#justAnotherInputBox').comboTree({

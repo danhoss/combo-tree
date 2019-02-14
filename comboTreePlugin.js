@@ -317,9 +317,6 @@
             title: $(ctItem).text()
         };
 
-        console.log($(ctItem).text());
-
-
         // ~
 
         var index = this.isItemInArray(_selectedItem, this._selectedItems);
@@ -328,7 +325,6 @@
         if (!selected && this.options.autoSelectParent) {
             var child = $(ctItem).closest('ul').closest('li').find('> .comboTreeItemTitle input:not(:checked)');
 
-            console.log('parent ', child);
             if (child.length > 0) {
                 child.each(
                     function() {
@@ -341,18 +337,15 @@
         if (selected) {
             this._selectedItems.splice(parseInt(index), 1);
             $(ctItem).find("input").prop('checked', false);
-            console.log('[ ] ' + $(ctItem).text());
         }
         else {
             this._selectedItems.push(_selectedItem);
             $(ctItem).find("input").prop('checked', true);
-            console.log('[v] ' + $(ctItem).text());
         }
 
         if (selected && this.options.autoUnselectChildren) {
             var children = $(ctItem).parent().find('> ul > li > .comboTreeItemTitle input:checked');
 
-            console.log(children);
             if (children.length > 0) {
                 children.each(
                     function() {
